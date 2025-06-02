@@ -8,14 +8,17 @@ import {
   Switch,
   Image,
   Platform,
-  Alert
+  Alert,
+  TextInput,
+  Modal
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { Bell, Moon, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight } from 'lucide-react-native';
+import { Bell, Moon, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Camera } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface UserProfile {
   id: string;
@@ -27,17 +30,21 @@ interface UserProfile {
 export default function SettingsScreen() {
   const router = useRouter();
   const { setUserToken } = useAuth();
+  const { theme, isDark, toggleTheme } = useTheme();
   
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editedName, setEditedName] = useState('');
   
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
         const profileData = await AsyncStorage.getItem('userProfile');
         if (profileData) {
-          setUserProfile(JSON.parse(profileData));
+          const profile = JSON.parse(profileData);
+          setUserProfile(profile);
+          setEditedName(profile.fullName);
         }
       } catch (error) {
         console.error('Failed to load user profile:', error);
@@ -61,14 +68,9 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // Clear auth data
               await AsyncStorage.removeItem('userToken');
               await AsyncStorage.removeItem('userProfile');
-              
-              // Update auth context
               setUserToken(null);
-              
-              // Navigate to welcome screen
               router.replace('/auth/welcome');
             } catch (error) {
               console.error('Failed to logout:', error);
@@ -77,6 +79,26 @@ export default function SettingsScreen() {
         }
       ]
     );
+  };
+
+  const handleEditProfile = async () => {
+    if (editedName.trim().length < 2) {
+      Alert.alert('Invalid Name', 'Please enter a valid name with at least 2 characters.');
+      return;
+    }
+
+    try {
+      const updatedProfile = {
+        ...userProfile,
+        fullName: editedName.trim()
+      };
+      await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+      setUserProfile(updatedProfile);
+      setIsEditModalVisible(false);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    }
   };
   
   const renderSettingsItem = (
@@ -88,43 +110,45 @@ export default function SettingsScreen() {
   ) => {
     return (
       <TouchableOpacity 
-        style={styles.settingsItem}
+        style={[styles.settingsItem, { backgroundColor: theme.colors.card }]}
         onPress={onPress}
         disabled={!onPress}
       >
-        <View style={styles.settingsItemIcon}>{icon}</View>
+        <View style={[styles.settingsItemIcon, { backgroundColor: theme.colors.background }]}>
+          {icon}
+        </View>
         <View style={styles.settingsItemContent}>
-          <Text style={styles.settingsItemTitle}>{title}</Text>
+          <Text style={[styles.settingsItemTitle, { color: theme.colors.text }]}>{title}</Text>
           {subtitle && (
-            <Text style={styles.settingsItemSubtitle}>{subtitle}</Text>
+            <Text style={[styles.settingsItemSubtitle, { color: theme.colors.textSecondary }]}>
+              {subtitle}
+            </Text>
           )}
         </View>
         <View style={styles.settingsItemRight}>
-          {rightElement || <ChevronRight size={20} color="#9CA3AF" />}
+          {rightElement || <ChevronRight size={20} color={theme.colors.textSecondary} />}
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Header */}
       <Animated.View 
-        style={styles.header}
+        style={[styles.header, { backgroundColor: theme.colors.background }]}
         entering={FadeInUp.delay(100).duration(800)}
       >
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Settings</Text>
       </Animated.View>
       
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Section */}
         <Animated.View 
-          style={styles.profileContainer}
+          style={[styles.profileContainer, { backgroundColor: theme.colors.card }]}
           entering={FadeInUp.delay(200).duration(800)}
         >
           {userProfile && (
@@ -134,44 +158,52 @@ export default function SettingsScreen() {
                 style={styles.profileImage}
               />
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{userProfile.fullName}</Text>
-                <Text style={styles.profileSubtitle}>Online</Text>
+                <Text style={[styles.profileName, { color: theme.colors.text }]}>
+                  {userProfile.fullName}
+                </Text>
+                <Text style={[styles.profileSubtitle, { color: theme.colors.success }]}>
+                  Online
+                </Text>
               </View>
-              <TouchableOpacity style={styles.editButton}>
+              <TouchableOpacity 
+                style={[styles.editButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => setIsEditModalVisible(true)}
+              >
                 <Text style={styles.editButtonText}>Edit</Text>
               </TouchableOpacity>
             </>
           )}
         </Animated.View>
         
-        {/* Settings Sections */}
         <Animated.View
           style={styles.settingsSection}
           entering={FadeInRight.delay(300).duration(500)}
         >
-          <Text style={styles.sectionTitle}>Preferences</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+            Preferences
+          </Text>
           
           {renderSettingsItem(
-            <Bell size={22} color="#3B82F6" />,
+            <Bell size={22} color={theme.colors.primary} />,
             "Notifications",
             "Receive alerts for new messages",
             <Switch
               value={notifications}
               onValueChange={setNotifications}
-              trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-              thumbColor={notifications ? '#3B82F6' : '#F9FAFB'}
+              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              thumbColor={notifications ? theme.colors.primaryText : theme.colors.text}
             />
           )}
           
           {renderSettingsItem(
-            <Moon size={22} color="#8B5CF6" />,
+            <Moon size={22} color={theme.colors.primary} />,
             "Dark Mode",
             "Switch to dark theme",
             <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{ false: '#E5E7EB', true: '#C4B5FD' }}
-              thumbColor={darkMode ? '#8B5CF6' : '#F9FAFB'}
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              thumbColor={isDark ? theme.colors.primaryText : theme.colors.text}
             />
           )}
         </Animated.View>
@@ -180,10 +212,12 @@ export default function SettingsScreen() {
           style={styles.settingsSection}
           entering={FadeInRight.delay(400).duration(500)}
         >
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+            Support
+          </Text>
           
           {renderSettingsItem(
-            <Shield size={22} color="#0EA5E9" />,
+            <Shield size={22} color={theme.colors.primary} />,
             "Privacy & Security",
             "Manage your data and security settings",
             undefined,
@@ -191,7 +225,7 @@ export default function SettingsScreen() {
           )}
           
           {renderSettingsItem(
-            <HelpCircle size={22} color="#10B981" />,
+            <HelpCircle size={22} color={theme.colors.primary} />,
             "Help & Support",
             "Get assistance and report issues",
             undefined,
@@ -204,7 +238,7 @@ export default function SettingsScreen() {
           entering={FadeInRight.delay(500).duration(500)}
         >
           {renderSettingsItem(
-            <LogOut size={22} color="#EF4444" />,
+            <LogOut size={22} color={theme.colors.error} />,
             "Logout",
             "Sign out from your account",
             undefined,
@@ -213,9 +247,66 @@ export default function SettingsScreen() {
         </Animated.View>
         
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Chatter v1.0.0</Text>
+          <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
+            Chatter v1.0.0
+          </Text>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isEditModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              Edit Profile
+            </Text>
+            
+            <TouchableOpacity style={styles.avatarContainer}>
+              <Image 
+                source={{ uri: userProfile?.avatarUrl }}
+                style={styles.modalAvatar}
+              />
+              <View style={styles.cameraButton}>
+                <Camera size={20} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.background,
+                color: theme.colors.text,
+                borderColor: theme.colors.border
+              }]}
+              value={editedName}
+              onChangeText={setEditedName}
+              placeholder="Enter your name"
+              placeholderTextColor={theme.colors.textSecondary}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: theme.colors.border }]}
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+                onPress={handleEditProfile}
+              >
+                <Text style={styles.modalButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -223,18 +314,15 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     fontFamily: 'Inter-Bold',
     fontSize: 32,
-    color: '#1F2937',
   },
   scrollView: {
     flex: 1,
@@ -245,7 +333,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     marginVertical: 16,
     padding: 16,
-    backgroundColor: '#F9FAFB',
     borderRadius: 16,
   },
   profileImage: {
@@ -260,15 +347,12 @@ const styles = StyleSheet.create({
   profileName: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 18,
-    color: '#1F2937',
   },
   profileSubtitle: {
     fontFamily: 'Inter-Regular',
     fontSize: 14,
-    color: '#10B981',
   },
   editButton: {
-    backgroundColor: '#3B82F6',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -284,7 +368,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 16,
-    color: '#6B7280',
     marginHorizontal: 24,
     marginBottom: 8,
   },
@@ -298,7 +381,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -309,12 +391,10 @@ const styles = StyleSheet.create({
   settingsItemTitle: {
     fontFamily: 'Inter-Medium',
     fontSize: 16,
-    color: '#1F2937',
   },
   settingsItemSubtitle: {
     fontFamily: 'Inter-Regular',
     fontSize: 14,
-    color: '#6B7280',
   },
   settingsItemRight: {
     marginLeft: 8,
@@ -327,6 +407,71 @@ const styles = StyleSheet.create({
   footerText: {
     fontFamily: 'Inter-Regular',
     fontSize: 14,
-    color: '#9CA3AF',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 24,
+    marginBottom: 24,
+  },
+  avatarContainer: {
+    marginBottom: 24,
+  },
+  modalAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  cameraButton: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#3B82F6',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  input: {
+    width: '100%',
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    fontFamily: 'Inter-Regular',
+    fontSize: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  modalButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });

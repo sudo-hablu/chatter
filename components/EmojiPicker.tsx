@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, ScrollView, Platform } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 
 const EMOJI_CATEGORIES = {
