@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, Phone, Video, MoveVertical as MoreVertical, Send, Smile, Paperclip, Mic } from 'lucide-react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInUp, withRepeat, withSequence, withTiming, useAnimatedStyle, withDelay } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { getContactById, generateMockMessages } from '@/utils/mockData';
 import { Message as MessageType, Contact } from '@/types';
@@ -110,6 +110,57 @@ export default function ChatScreen() {
     return replies[Math.floor(Math.random() * replies.length)];
   };
 
+  // Create animated styles for each typing dot
+  const dot1Style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: withRepeat(
+          withSequence(
+            withTiming(1.2, { duration: 400 }),
+            withTiming(1, { duration: 400 })
+          ),
+          -1
+        )
+      }
+    ]
+  }));
+
+  const dot2Style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: withRepeat(
+          withSequence(
+            withDelay(200,
+              withTiming(1.2, { duration: 400 })
+            ),
+            withDelay(200,
+              withTiming(1, { duration: 400 })
+            )
+          ),
+          -1
+        )
+      }
+    ]
+  }));
+
+  const dot3Style = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: withRepeat(
+          withSequence(
+            withDelay(400,
+              withTiming(1.2, { duration: 400 })
+            ),
+            withDelay(400,
+              withTiming(1, { duration: 400 })
+            )
+          ),
+          -1
+        )
+      }
+    ]
+  }));
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -174,9 +225,9 @@ export default function ChatScreen() {
       {isTyping && (
         <View style={styles.typingContainer}>
           <View style={styles.typingBubble}>
-            <View style={styles.typingDot} />
-            <View style={[styles.typingDot, { marginLeft: 4 }]} />
-            <View style={[styles.typingDot, { marginLeft: 4 }]} />
+            <Animated.View style={[styles.typingDot, dot1Style]} />
+            <Animated.View style={[styles.typingDot, dot2Style]} />
+            <Animated.View style={[styles.typingDot, dot3Style]} />
           </View>
         </View>
       )}
@@ -310,10 +361,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#9CA3AF',
     opacity: 0.7,
-    transform: [{ scale: 1 }],
-    animationName: 'bounce',
-    animationDuration: '1.4s',
-    animationIterationCount: 'infinite',
+    marginHorizontal: 2,
   },
   inputContainer: {
     flexDirection: 'row',
